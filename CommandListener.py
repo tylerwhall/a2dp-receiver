@@ -16,7 +16,10 @@ class AsyncReader:
         GLib.io_add_watch(channel, GLib.PRIORITY_DEFAULT, GLib.IO_IN, self.data_in, None)
 
     def data_in(self, channel, condition, data):
-        self.buf += self.f.read()
+        newdata = self.f.read()
+        if type(newdata) == bytes:
+            newdata = str(newdata, 'ascii')
+        self.buf += newdata
         while True:
             match = re.match("(.*)[\n\r]+((?:.|[\n\r])*)", self.buf)
             if not match:

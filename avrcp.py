@@ -1,6 +1,7 @@
 from gi.repository import GLib, Gio
 import logging
 import CommandListener
+import serial
 
 MEDIA_PLAYER_IFC = 'org.bluez.MediaPlayer1'
 
@@ -68,10 +69,20 @@ class Controller:
 
 if __name__ == "__main__":
     import sys
+
+    if len(sys.argv) != 2:
+        print("First argument must be serial device or - for stdin")
+        sys.exit(1)
+
+    if sys.argv[1] == '-':
+        f = sys.stdin
+    else:
+        f = serial.Serial(sys.argv[1], 19200)
+
     logging.basicConfig(level=logging.DEBUG)
 
     loop = GLib.MainLoop()
 
-    Controller(sys.stdin)
+    Controller(f)
 
     loop.run()
