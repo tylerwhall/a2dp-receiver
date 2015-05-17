@@ -1,41 +1,47 @@
-import dbus
-import time
+from dbus.mainloop.glib import DBusGMainLoop
+from gi.repository import GLib, Gio
+import logging
 
 MEDIA_PLAYER_IFC = 'org.bluez.MediaPlayer1'
 
-class AvrcpPlayer:
-    def __init__(self, bus_object):
-        self.bus_object = bus_object
+class AvrcpPlayers:
+    def __init__(self, bus):
+        self.bus = bus
+        paths = bus.call_sync('org.bluez', '/', 'org.freedesktop.DBus.ObjectManager', 'GetManagedObjects',
+                None, GLib.VariantType.new('(a{oa{sa{sv}}})'), 0, -1, None)
+        paths = paths.unpack()[0]
+        players = [path for path, interfaces in paths.items() if MEDIA_PLAYER_IFC in interfaces]
+        logging.info("Found players %s" % players)
+        flags = Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES
+        self.players = []
+        for player in players:
+            try:
+                p = Gio.DBusProxy.new_sync(bus, flags, None, 'org.bluez', player, MEDIA_PLAYER_IFC, None)
+                self.players.append(p)
+            except GLib.Error:
+                logging.error("Failed to create proxy for %s" % player)
+                continue
 
-    def get_prop(self, prop):
-        return self.bus_object \
-                .get_dbus_method('Get',
-                        dbus_interface='org.freedesktop.DBus.Properties')(MEDIA_PLAYER_IFC, prop)
+    def play(self):
+        for player in self.players:
+            player.Play()
 
-    def call_method(self, name):
-        self.bus_object.get_dbus_method(name, dbus_interface=MEDIA_PLAYER_IFC)()
-
-    def next(self):
-        self.call_method('Next')
+    def pause(self):
+        for player in self.players:
+            player.Pause()
 
 if __name__ == "__main__":
-    bus = dbus.SystemBus()
+    logging.basicConfig(level=logging.DEBUG)
+    loop = GLib.MainLoop()
 
-    bluez = bus.get_object('org.bluez', '/')
-    paths = dbus.Interface(bluez, 'org.freedesktop.DBus.ObjectManager') \
-            .get_dbus_method('GetManagedObjects')()
+    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
 
-    players = []
-    for path, interfaces in paths.items():
-        if MEDIA_PLAYER_IFC in interfaces:
-            print(path)
-            players.append(AvrcpPlayer(bus.get_object('org.bluez', path)))
+    try:
+        players = AvrcpPlayers(bus)
+    except GLib.Error:
+        print("error")
+        raise
 
-    for p in players:
-        p.next()
-        while True:
-            print(p.get_prop('Status'))
-            print(p.get_prop('Position'))
-            print(p.get_prop('Track')['Duration'])
-            print(p.get_prop('Track'))
-            time.sleep(1)
+    players.play()
+
+    loop.run()
