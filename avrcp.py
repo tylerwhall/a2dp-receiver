@@ -1,6 +1,8 @@
 from gi.repository import GLib, Gio
+import dbus
 import logging
 import CommandListener
+import Agent
 import serial
 
 MEDIA_PLAYER_IFC = 'org.bluez.MediaPlayer1'
@@ -51,9 +53,13 @@ class Controller:
     def __init__(self, f_in):
         self.bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
         self.listener = CommandListener.CommandListener(f_in, self)
+        self.pairing = Agent.PairingManager()
 
     def list(self, n):
-        print("LIST", n)
+        logging.debug("LIST %d", n)
+        if n == 6:
+            self.pairing.set_pairing_mode(60)
+            logging.info("Pairing mode active for 60 seconds")
 
     def play(self):
         AvrcpPlayers(self.bus).play()
@@ -81,6 +87,7 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.DEBUG)
 
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     loop = GLib.MainLoop()
 
     Controller(f)

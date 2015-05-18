@@ -68,7 +68,6 @@ class Agent(dbus.service.Object):
 class PairingManager:
     def __init__(self):
         self.objpath = "/org/bluez/hci0"
-        dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
         self.bus = dbus.SystemBus()
         path = "/co/telnet/agent"
         agent = Agent(self.bus, path)
@@ -85,6 +84,7 @@ class PairingManager:
         props.Set("org.bluez.Adapter1", prop, val)
 
     def set_pairing_mode(self, timeout):
+        timeout = dbus.UInt32(timeout)
         self.set_bluez_prop(self.objpath, "PairableTimeout", timeout)
         self.set_bluez_prop(self.objpath, "DiscoverableTimeout", timeout)
         self.set_bluez_prop(self.objpath, "Pairable", True)
@@ -97,7 +97,8 @@ class PairingManager:
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
 
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     manager = PairingManager()
     mainloop = GObject.MainLoop()
-    manager.set_pairing_mode(dbus.UInt32(10))
+    manager.set_pairing_mode(60)
     mainloop.run()
