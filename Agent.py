@@ -1,118 +1,103 @@
 #!/usr/bin/python
-from __future__ import absolute_import, print_function, unicode_literals
+from __future__ import absolute_import, unicode_literals
 from gi.repository import GObject
 import sys
 import dbus
 import dbus.service
 import dbus.mainloop.glib
-from optparse import OptionParser
+import logging
 BUS_NAME = 'org.bluez'
 AGENT_INTERFACE = 'org.bluez.Agent1'
-bus = None
-device_obj = None
-dev_path = None
 
-def set_trusted(path):
-    props = dbus.Interface(bus.get_object("org.bluez", path),
-                    "org.freedesktop.DBus.Properties")
-    props.Set("org.bluez.Device1", "Trusted", True)
-def dev_connect(path):
-    dev = dbus.Interface(bus.get_object("org.bluez", path),
-                            "org.bluez.Device1")
-    dev.Connect()
-class Rejected(dbus.DBusException):
-    _dbus_error_name = "org.bluez.Error.Rejected"
 class Agent(dbus.service.Object):
+    def __init__(self, bus, path):
+        self.bus = bus
+        super().__init__(bus, path)
+
+    def set_trusted(self, path):
+        props = dbus.Interface(self.bus.get_object("org.bluez", path),
+                        "org.freedesktop.DBus.Properties")
+        props.Set("org.bluez.Device1", "Trusted", True)
     @dbus.service.method(AGENT_INTERFACE,
                     in_signature="", out_signature="")
     def Release(self):
-        print("Release")
+        logging.debug("Release")
         mainloop.quit()
     @dbus.service.method(AGENT_INTERFACE,
                     in_signature="os", out_signature="")
     def AuthorizeService(self, device, uuid):
-        print("AuthorizeService (%s, %s)" % (device, uuid))
+        logging.debug("AuthorizeService (%s, %s)" % (device, uuid))
         return
     @dbus.service.method(AGENT_INTERFACE,
                     in_signature="o", out_signature="s")
     def RequestPinCode(self, device):
-        print("RequestPinCode (%s)" % (device))
-        set_trusted(device)
+        logging.debug("RequestPinCode (%s)" % (device))
+        self.set_trusted(device)
         return "0000"
     @dbus.service.method(AGENT_INTERFACE,
                     in_signature="o", out_signature="u")
     def RequestPasskey(self, device):
-        print("RequestPasskey (%s)" % (device))
-        set_trusted(device)
+        logging.debug("RequestPasskey (%s)" % (device))
+        self.set_trusted(device)
         return dbus.UInt32(0)
     @dbus.service.method(AGENT_INTERFACE,
                     in_signature="ouq", out_signature="")
     def DisplayPasskey(self, device, passkey, entered):
-        print("DisplayPasskey (%s, %06u entered %u)" %
+        logging.debug("DisplayPasskey (%s, %06u entered %u)" %
                         (device, passkey, entered))
     @dbus.service.method(AGENT_INTERFACE,
                     in_signature="os", out_signature="")
     def DisplayPinCode(self, device, pincode):
-        print("DisplayPinCode (%s, %s)" % (device, pincode))
+        logging.debug("DisplayPinCode (%s, %s)" % (device, pincode))
     @dbus.service.method(AGENT_INTERFACE,
                     in_signature="ou", out_signature="")
     def RequestConfirmation(self, device, passkey):
-        print("RequestConfirmation (%s, %06d)" % (device, passkey))
-        confirm = ask("Confirm passkey (yes/no): ")
-        if (confirm == "yes"):
-            set_trusted(device)
-            return
-        raise Rejected("Passkey doesn't match")
+        logging.debug("RequestConfirmation (%s, %06d)" % (device, passkey))
+        self.set_trusted(device)
+        return
     @dbus.service.method(AGENT_INTERFACE,
                     in_signature="o", out_signature="")
     def RequestAuthorization(self, device):
-        print("RequestAuthorization (%s)" % (device))
-        auth = ask("Authorize? (yes/no): ")
-        if (auth == "yes"):
-            return
-        raise Rejected("Pairing rejected")
+        logging.debug("RequestAuthorization (%s)" % (device))
+        return
     @dbus.service.method(AGENT_INTERFACE,
                     in_signature="", out_signature="")
     def Cancel(self):
-        print("Cancel")
-def pair_reply():
-    print("Device paired")
-    set_trusted(dev_path)
-    dev_connect(dev_path)
-    mainloop.quit()
-def pair_error(error):
-    err_name = error.get_dbus_name()
-    if err_name == "org.freedesktop.DBus.Error.NoReply" and device_obj:
-        print("Timed out. Cancelling pairing")
-        device_obj.CancelPairing()
-    else:
-        print("Creating device failed: %s" % (error))
+        logging.debug("Cancel")
 
+class PairingManager:
+    def __init__(self):
+        self.objpath = "/org/bluez/hci0"
+        dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+        self.bus = dbus.SystemBus()
+        path = "/co/telnet/agent"
+        agent = Agent(self.bus, path)
+        obj = self.bus.get_object(BUS_NAME, "/org/bluez");
+        manager = dbus.Interface(obj, "org.bluez.AgentManager1")
+        capability = "KeyboardDisplay"
+        manager.RegisterAgent(path, capability)
+        logging.debug("Agent registered")
+        manager.RequestDefaultAgent(path)
+
+    def set_bluez_prop(self, path, prop, val):
+        props = dbus.Interface(self.bus.get_object("org.bluez", path),
+                        "org.freedesktop.DBus.Properties")
+        props.Set("org.bluez.Adapter1", prop, val)
+
+    def set_pairing_mode(self, timeout):
+        self.set_bluez_prop(self.objpath, "PairableTimeout", timeout)
+        self.set_bluez_prop(self.objpath, "DiscoverableTimeout", timeout)
+        self.set_bluez_prop(self.objpath, "Pairable", True)
+        self.set_bluez_prop(self.objpath, "Discoverable", True)
+
+    def dev_connect(path):
+        dev = dbus.Interface(self.bus.get_object("org.bluez", path),
+                                "org.bluez.Device1")
+        dev.Connect()
 if __name__ == '__main__':
-    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-    bus = dbus.SystemBus()
-    capability = "KeyboardDisplay"
-    parser = OptionParser()
-    parser.add_option("-i", "--adapter", action="store",
-                    type="string",
-                    dest="adapter_pattern",
-                    default=None)
-    parser.add_option("-c", "--capability", action="store",
-                    type="string", dest="capability")
-    parser.add_option("-t", "--timeout", action="store",
-                    type="int", dest="timeout",
-                    default=60000)
-    (options, args) = parser.parse_args()
-    if options.capability:
-        capability  = options.capability
-    path = "/test/agent"
-    agent = Agent(bus, path)
+    logging.basicConfig(level=logging.DEBUG)
+
+    manager = PairingManager()
     mainloop = GObject.MainLoop()
-    obj = bus.get_object(BUS_NAME, "/org/bluez");
-    manager = dbus.Interface(obj, "org.bluez.AgentManager1")
-    manager.RegisterAgent(path, capability)
-    print("Agent registered")
-    manager.RequestDefaultAgent(path)
+    manager.set_pairing_mode(dbus.UInt32(10))
     mainloop.run()
-    #adapter.UnregisterAgent(path)
-    #print("Agent unregistered")
