@@ -5,6 +5,7 @@ import sys
 import dbus
 import dbus.service
 import dbus.mainloop.glib
+from dbus.exceptions import DBusException
 import logging
 BUS_NAME = 'org.bluez'
 AGENT_INTERFACE = 'org.bluez.Agent1'
@@ -90,15 +91,56 @@ class PairingManager:
         self.set_bluez_prop(self.objpath, "Pairable", True)
         self.set_bluez_prop(self.objpath, "Discoverable", True)
 
-    def dev_connect(path):
+    def get_all_devices(self):
+        bluez = dbus.Interface(self.bus.get_object("org.bluez", "/"),
+                               "org.freedesktop.DBus.ObjectManager")
+        objects = bluez.GetManagedObjects()
+        devices = [object for object, interfaces in objects.items() if "org.bluez.Device1" in interfaces]
+        return devices
+
+    def remove_all_devices(self):
+        devices = self.get_all_devices()
+        adapter = dbus.Interface(self.bus.get_object("org.bluez", self.objpath),
+                                 "org.bluez.Adapter1")
+        for device in devices:
+            logging.debug("Removing device %s", device)
+            try:
+                adapter.RemoveDevice(device)
+            except DBusException:
+                logging.debug("Removal failed")
+
+    def connect_device(self, path):
         dev = dbus.Interface(self.bus.get_object("org.bluez", path),
                                 "org.bluez.Device1")
         dev.Connect()
+
+    def connect_any_device(self):
+        devices = self.get_all_devices()
+        for device in devices:
+            props = dbus.Interface(self.bus.get_object("org.bluez", device),
+                            "org.freedesktop.DBus.Properties")
+            try:
+                if props.Get("org.bluez.Device1", "Connected"):
+                    logging.debug("Already connected to %s", device)
+                    return
+            except DBusException:
+                continue
+
+        for device in devices:
+            logging.debug("Connecting to %s", device)
+            try:
+                self.connect_device(device)
+                return
+            except DBusException:
+                logging.debug("Connection failed")
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
 
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     manager = PairingManager()
     mainloop = GObject.MainLoop()
-    manager.set_pairing_mode(60)
+    manager.connect_any_device()
+    #manager.remove_all_devices()
+    #manager.set_pairing_mode(60)
     mainloop.run()

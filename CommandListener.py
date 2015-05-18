@@ -55,7 +55,7 @@ class CommandListener:
                 func = COMMAND_MAP[line]
                 getattr(self.controller, func)()
         except Exception as e:
-            logging.debug("Unhandled command %s", line)
+            logging.debug("Unhandled command %s: %s", line, e)
 
 if __name__ == "__main__":
     import sys

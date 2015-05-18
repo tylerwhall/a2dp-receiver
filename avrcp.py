@@ -20,7 +20,7 @@ class AvrcpPlayers:
             logging.error("Failed to get players %s" % e)
             return
 
-        logging.info("Found players %s" % players)
+        logging.debug("Found players %s" % players)
         flags = Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES
         for player in players:
             try:
@@ -60,8 +60,14 @@ class Controller:
         if n == 6:
             self.pairing.set_pairing_mode(60)
             logging.info("Pairing mode active for 60 seconds")
+        elif n == 5:
+            self.pairing.remove_all_devices()
+            logging.info("Removed all paired devices")
+        else:
+            logging.info("Unknown command %d", n)
 
     def play(self):
+        self.pairing.connect_any_device()
         AvrcpPlayers(self.bus).play()
 
     def pause(self):
@@ -91,5 +97,6 @@ if __name__ == "__main__":
     loop = GLib.MainLoop()
 
     Controller(f)
+    logging.info("Bluetooth ready")
 
     loop.run()
