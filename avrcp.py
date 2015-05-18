@@ -1,6 +1,8 @@
 from gi.repository import GLib, Gio
 import dbus
 import logging
+import subprocess
+import time
 import CommandListener
 import Agent
 import serial
@@ -57,6 +59,7 @@ class Controller:
 
     def list(self, n):
         logging.debug("LIST %d", n)
+        time.sleep(2.5) # Audio mutes temporarily when this command is sent
         if n == 6:
             self.pairing.set_pairing_mode(60)
             logging.info("Pairing mode active for 60 seconds")
@@ -64,7 +67,7 @@ class Controller:
             self.pairing.remove_all_devices()
             logging.info("Removed all paired devices")
         else:
-            logging.info("Unknown command %d", n)
+            logging.info("Unknown command %d" % n)
 
     def play(self):
         self.pairing.connect_any_device()
@@ -79,6 +82,15 @@ class Controller:
     def previous(self):
         AvrcpPlayers(self.bus).previous()
 
+class SpeechFilter(logging.Filter):
+    def filter(self, record):
+        if record.levelno == logging.INFO:
+            try:
+                subprocess.call(["espeak", "-v", "en-sc", record.msg])
+            except:
+                pass
+        return True
+
 if __name__ == "__main__":
     import sys
 
@@ -92,6 +104,7 @@ if __name__ == "__main__":
         f = serial.Serial(sys.argv[1], 19200)
 
     logging.basicConfig(level=logging.DEBUG)
+    logging.getLogger('').addFilter(SpeechFilter())
 
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     loop = GLib.MainLoop()
