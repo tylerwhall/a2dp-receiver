@@ -8,15 +8,10 @@ import dbus.mainloop.glib
 from optparse import OptionParser
 BUS_NAME = 'org.bluez'
 AGENT_INTERFACE = 'org.bluez.Agent1'
-AGENT_PATH = "/test/agent"
 bus = None
 device_obj = None
 dev_path = None
-def ask(prompt):
-        try:
-                return raw_input(prompt)
-        except:
-                return input(prompt)
+
 def set_trusted(path):
         props = dbus.Interface(bus.get_object("org.bluez", path),
                                         "org.freedesktop.DBus.Properties")
@@ -28,36 +23,28 @@ def dev_connect(path):
 class Rejected(dbus.DBusException):
         _dbus_error_name = "org.bluez.Error.Rejected"
 class Agent(dbus.service.Object):
-        exit_on_release = True
-        def set_exit_on_release(self, exit_on_release):
-                self.exit_on_release = exit_on_release
         @dbus.service.method(AGENT_INTERFACE,
                                         in_signature="", out_signature="")
         def Release(self):
                 print("Release")
-                if self.exit_on_release:
-                        mainloop.quit()
+                mainloop.quit()
         @dbus.service.method(AGENT_INTERFACE,
                                         in_signature="os", out_signature="")
         def AuthorizeService(self, device, uuid):
                 print("AuthorizeService (%s, %s)" % (device, uuid))
-                authorize = ask("Authorize connection (yes/no): ")
-                if (authorize == "yes"):
-                        return
-                raise Rejected("Connection rejected by user")
+                return
         @dbus.service.method(AGENT_INTERFACE,
                                         in_signature="o", out_signature="s")
         def RequestPinCode(self, device):
                 print("RequestPinCode (%s)" % (device))
                 set_trusted(device)
-                return ask("Enter PIN Code: ")
+                return "0000"
         @dbus.service.method(AGENT_INTERFACE,
                                         in_signature="o", out_signature="u")
         def RequestPasskey(self, device):
                 print("RequestPasskey (%s)" % (device))
                 set_trusted(device)
-                passkey = ask("Enter passkey: ")
-                return dbus.UInt32(passkey)
+                return dbus.UInt32(0)
         @dbus.service.method(AGENT_INTERFACE,
                                         in_signature="ouq", out_signature="")
         def DisplayPasskey(self, device, passkey, entered):
@@ -100,7 +87,7 @@ def pair_error(error):
                 device_obj.CancelPairing()
         else:
                 print("Creating device failed: %s" % (error))
-        mainloop.quit()
+
 if __name__ == '__main__':
         dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
         bus = dbus.SystemBus()
@@ -125,18 +112,7 @@ if __name__ == '__main__':
         manager = dbus.Interface(obj, "org.bluez.AgentManager1")
         manager.RegisterAgent(path, capability)
         print("Agent registered")
-        # Fix-up old style invocation (BlueZ 4)
-        if len(args) > 0 and args[0].startswith("hci"):
-                options.adapter_pattern = args[0]
-                del args[:1]
-        if len(args) > 0:
-                dev_path = "/org/bluez/hci0"
-                agent.set_exit_on_release(False)
-                device.Pair(reply_handler=pair_reply, error_handler=pair_error,
-                                                                timeout=60000)
-                device_obj = device
-        else:
-                manager.RequestDefaultAgent(path)
+        manager.RequestDefaultAgent(path)
         mainloop.run()
         #adapter.UnregisterAgent(path)
         #print("Agent unregistered")
