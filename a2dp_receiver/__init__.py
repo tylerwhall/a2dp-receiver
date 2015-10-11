@@ -3,8 +3,8 @@ import dbus
 import logging
 import subprocess
 import time
-import CommandListener
-import Agent
+from . import CommandListener
+from . import Agent
 import serial
 
 MEDIA_PLAYER_IFC = 'org.bluez.MediaPlayer1'
@@ -91,7 +91,7 @@ class SpeechFilter(logging.Filter):
                 pass
         return True
 
-if __name__ == "__main__":
+def main():
     import sys
 
     if len(sys.argv) != 2:

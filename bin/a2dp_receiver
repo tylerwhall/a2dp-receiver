@@ -1,0 +1,4 @@
+import a2dp_receiver
+
+if __name__ == "__main__":
+    a2dp_receiver.main()
