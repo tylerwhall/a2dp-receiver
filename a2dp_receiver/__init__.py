@@ -101,6 +101,15 @@ class SpeechFilter(logging.Filter):
                 pass
         return True
 
+class DmaLatency:
+    def __init__(self):
+        try:
+            self.f = open("/dev/cpu_dma_latency", "w")
+            self.f.write(b'\x00\x00\x00\x00')
+            self.f.flush()
+        except IOError:
+            logging.warning("Failed to set low latency")
+
 def main():
     import sys
 
@@ -115,6 +124,8 @@ def main():
 
     logging.basicConfig(level=logging.DEBUG)
     logging.getLogger('').addFilter(SpeechFilter())
+
+    latency = DmaLatency()
 
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     loop = GLib.MainLoop()
