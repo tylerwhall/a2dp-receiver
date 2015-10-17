@@ -88,6 +88,11 @@ class PairingManager:
                         "org.freedesktop.DBus.Properties")
         props.Set("org.bluez.Adapter1", prop, val)
 
+    def get_bluez_prop(self, path, interface, prop):
+        props = dbus.Interface(self.bus.get_object("org.bluez", path),
+                        "org.freedesktop.DBus.Properties")
+        return props.Get(interface, prop)
+
     def set_pairing_mode(self, timeout):
         timeout = dbus.UInt32(timeout)
         self.set_bluez_prop(self.objpath, "PairableTimeout", timeout)
@@ -101,6 +106,9 @@ class PairingManager:
         objects = bluez.GetManagedObjects()
         devices = [object for object, interfaces in objects.items() if "org.bluez.Device1" in interfaces]
         return devices
+
+    def get_device_name(self, objpath):
+        return self.get_bluez_prop(objpath, "org.bluez.Device1", "Name")
 
     def remove_all_devices(self):
         devices = self.get_all_devices()
@@ -131,8 +139,9 @@ class PairingManager:
                 continue
 
         for device in devices:
-            logging.debug("Connecting to %s", device)
             try:
+                name = self.get_device_name(device)
+                logging.info("Connecting to {}".format(name))
                 self.connect_device(device)
                 return
             except DBusException:
