@@ -82,6 +82,8 @@ class PairingManager:
         manager.RegisterAgent(path, capability)
         logging.debug("Agent registered")
         manager.RequestDefaultAgent(path)
+        logging.debug("Powering up")
+        self.set_bluez_prop(self.objpath, "Powered", True)
 
     def set_bluez_prop(self, path, prop, val):
         props = dbus.Interface(self.bus.get_object("org.bluez", path),
