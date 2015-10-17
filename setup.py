@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 from setuptools import setup, find_packages
 
@@ -8,6 +8,10 @@ setup(
     author = "Tyler Hall",
     author_email = "tylerwhall@gmail.com",
     license = "GPLv2",
-    scripts = ['bin/a2dp_receiver'],
+    entry_points = {
+        'console_scripts': [
+            'a2dp_receiver = a2dp_receiver:main'
+        ]
+    },
     packages = find_packages(),
 )
