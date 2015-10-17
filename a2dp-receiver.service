@@ -5,7 +5,7 @@ BindsTo=dev-ttyO3.device
 After=dev-ttyO3.device
 
 [Service]
-ExecStart=/usr/bin/python /root/avrcp.py /dev/ttyO3
+ExecStart=/usr/bin/a2dp_receiver /dev/ttyO3
 
 [Install]
 WantedBy=multi-user.target
