@@ -153,8 +153,8 @@ class PairingManager:
                 logging.info("Connecting to {}".format(name))
                 self.connect_device(device)
                 return
-            except DBusException:
-                logging.debug("Connection failed")
+            except DBusException as e:
+                logging.debug("Connection failed: {}".format(str(e)))
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
