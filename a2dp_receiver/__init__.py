@@ -94,7 +94,7 @@ class Controller:
 
 class SpeechFilter(logging.Filter):
     def filter(self, record):
-        if record.levelno == logging.INFO:
+        if record.levelno == logging.INFO or record.levelno == logging.ERROR:
             try:
                 subprocess.call(["espeak", "-v", "en-sc", record.msg])
             except:
