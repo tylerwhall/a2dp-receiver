@@ -1,11 +1,11 @@
 [Unit]
 BindsTo=bluetooth.service
 After=bluetooth.service
-BindsTo=dev-ttyO3.device
-After=dev-ttyO3.device
+BindsTo=dev-ttyS3.device
+After=dev-ttyS3.device
 
 [Service]
-ExecStart=/usr/bin/a2dp_receiver /dev/ttyO3
+ExecStart=/usr/bin/a2dp_receiver /dev/ttyS3
 
 [Install]
 WantedBy=multi-user.target
