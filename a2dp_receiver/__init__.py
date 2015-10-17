@@ -42,18 +42,20 @@ class AvrcpPlayers:
                 getattr(player, method)()
             except DBusException:
                 logging.error("Method %s failed for %s", method, player)
+                return False
+        return len(self.players) > 0
 
     def play(self):
-        self.call_safe("Play");
+        return self.call_safe("Play");
 
     def pause(self):
-        self.call_safe("Pause");
+        return self.call_safe("Pause");
 
     def next(self):
-        self.call_safe("Next");
+        return self.call_safe("Next");
 
     def previous(self):
-        self.call_safe("Previous");
+        return self.call_safe("Previous");
 
 class Controller:
     def __init__(self, f_in):
@@ -75,7 +77,11 @@ class Controller:
 
     def play(self):
         self.pairing.connect_any_device()
-        AvrcpPlayers(self.bus).play()
+        if not AvrcpPlayers(self.bus).play():
+            # The player interface takes some time to appear after connecting.
+            # Wait a short period if the command failed
+            time.sleep(0.5)
+            AvrcpPlayers(self.bus).play()
 
     def pause(self):
         AvrcpPlayers(self.bus).pause()
