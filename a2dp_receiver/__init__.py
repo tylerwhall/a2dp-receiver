@@ -1,4 +1,8 @@
-from gi.repository import GLib, Gio
+try:
+    #raise ImportError()
+    from gi.repository import GLib
+except ImportError:
+    import glib as GLib
 import dbus
 import logging
 import subprocess
@@ -14,21 +18,21 @@ class AvrcpPlayers:
         self.bus = bus
         self.players = []
         try:
-            paths = bus.call_sync('org.bluez', '/', 'org.freedesktop.DBus.ObjectManager', 'GetManagedObjects',
-                    None, GLib.VariantType.new('(a{oa{sa{sv}}})'), 0, -1, None)
-            paths = paths.unpack()[0]
+            omanager = dbus.Interface(bus.get_object('org.bluez', '/'),
+                                      dbus_interface = 'org.freedesktop.DBus.ObjectManager')
+            paths = omanager.GetManagedObjects()
             players = [path for path, interfaces in paths.items() if MEDIA_PLAYER_IFC in interfaces]
-        except GLib.Error as e:
+        except DBusException:
             logging.error("Failed to get players %s" % e)
             return
 
         logging.debug("Found players %s" % players)
-        flags = Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES
         for player in players:
             try:
-                p = Gio.DBusProxy.new_sync(bus, flags, None, 'org.bluez', player, MEDIA_PLAYER_IFC, None)
+                p = dbus.Interface(bus.get_object('org.bluez', player),
+                                      dbus_interface = MEDIA_PLAYER_IFC)
                 self.players.append(p)
-            except GLib.Error:
+            except DBusException:
                 logging.error("Failed to create proxy for %s" % player)
                 continue
 
@@ -36,7 +40,7 @@ class AvrcpPlayers:
         for player in self.players:
             try:
                 getattr(player, method)()
-            except GLib.Error:
+            except DBusException:
                 logging.error("Method %s failed for %s", method, player)
 
     def play(self):
@@ -53,7 +57,7 @@ class AvrcpPlayers:
 
 class Controller:
     def __init__(self, f_in):
-        self.bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        self.bus = dbus.SystemBus()
         self.listener = CommandListener.CommandListener(f_in, self)
         self.pairing = Agent.PairingManager()
 
