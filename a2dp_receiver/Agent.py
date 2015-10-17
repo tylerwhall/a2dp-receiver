@@ -1,6 +1,10 @@
 #!/usr/bin/python
 from __future__ import absolute_import, unicode_literals
-from gi.repository import GObject
+try:
+    #raise ImportError()
+    from gi.repository import GObject
+except ImportError:
+    import gobject as GObject
 import sys
 import dbus
 import dbus.service
@@ -13,7 +17,7 @@ AGENT_INTERFACE = 'org.bluez.Agent1'
 class Agent(dbus.service.Object):
     def __init__(self, bus, path):
         self.bus = bus
-        super().__init__(bus, path)
+        super(Agent, self).__init__(bus, path)
 
     def set_trusted(self, path):
         props = dbus.Interface(self.bus.get_object("org.bluez", path),

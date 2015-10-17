@@ -1,4 +1,9 @@
-from gi.repository import GLib, Gio
+try:
+    #raise ImportError()
+    from gi.repository import GLib
+except ImportError:
+    import glib as GLib
+
 import fcntl
 import os
 import re
@@ -12,12 +17,15 @@ class AsyncReader:
         fd = f.fileno()
         fl = fcntl.fcntl(fd, fcntl.F_GETFL)
         fcntl.fcntl(fd, fcntl. F_SETFL, fl | os.O_NONBLOCK)
-        channel = GLib.IOChannel.unix_new(f.fileno())
-        GLib.io_add_watch(channel, GLib.PRIORITY_DEFAULT, GLib.IO_IN, self.data_in, None)
+        # Older, deperecated version
+        GLib.io_add_watch(f.fileno(), GLib.IO_IN, self.data_in)
+        # pygobject >= 3.8:
+        #channel = GLib.IOChannel(f.fileno())
+        #GLib.io_add_watch(channel, GLib.PRIORITY_DEFAULT, GLib.IO_IN, self.data_in, None)
 
-    def data_in(self, channel, condition, data):
+    def data_in(self, channel, condition):
         newdata = self.f.read()
-        if type(newdata) == bytes:
+        if type(newdata) == bytes and type("") != bytes:
             newdata = str(newdata, 'ascii')
         self.buf += newdata
         while True:
