@@ -117,7 +117,7 @@ class PairingManager:
         return devices
 
     def get_device_name(self, objpath):
-        return self.get_bluez_prop(objpath, "org.bluez.Device1", "Name")
+        return self.get_bluez_prop(objpath, "org.bluez.Device1", "Alias")
 
     def remove_all_devices(self):
         devices = self.get_all_devices()
@@ -150,7 +150,12 @@ class PairingManager:
         for device in devices:
             try:
                 name = self.get_device_name(device)
-                logging.info("Connecting to {}".format(name))
+            except DBusException as e:
+                name = "unknown"
+
+            logging.info("Connecting to {}".format(name))
+
+            try:
                 self.connect_device(device)
                 return
             except DBusException as e:
